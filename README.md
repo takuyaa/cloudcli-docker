@@ -71,13 +71,16 @@ docker run -d \
 git clone https://github.com/takuyaa/cloudcli-docker.git
 cd cloudcli-docker
 
-# Build (specify VERSION)
-make build VERSION=v1.16.4
+# One-time setup (if not already done)
+make setup
 
-# Or build and push to GHCR
+# Build and push multi-arch image (amd64 + arm64)
 export GITHUB_TOKEN=<your-token>
 make login
-make build-push VERSION=v1.16.4
+make build VERSION=v1.17.1
+
+# Or build locally for testing (amd64 only, no push)
+make build-local VERSION=v1.17.1
 ```
 
 ## Modifications from Upstream
