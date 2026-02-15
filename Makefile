@@ -4,41 +4,56 @@
 REGISTRY := ghcr.io
 USERNAME := takuyaa
 IMAGE_NAME := cloudcli
-VERSION ?= $(error VERSION is required. Usage: make build VERSION=v1.16.4)
+PLATFORMS := linux/amd64,linux/arm64
 
 # Derived variables
 IMAGE := $(REGISTRY)/$(USERNAME)/$(IMAGE_NAME)
+
+# VERSION is required for build targets (checked in each target)
+ifdef VERSION
 BUILD_ARGS := --build-arg CLOUDCLI_VERSION=$(VERSION)
+endif
 
 .PHONY: help
 help: ## Show this help message
-	@echo 'Usage: make [target] VERSION=<version>'
+	@echo 'CloudCLI Docker Build'
 	@echo ''
-	@echo 'Required variable:'
-	@echo '  VERSION         CloudCLI UI version (e.g., v1.16.4)'
-	@echo ''
-	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
+.PHONY: setup
+setup: ## Setup buildx builder for multi-arch (first-time setup)
+	docker buildx create --name multiarch --use || docker buildx use multiarch
+	docker buildx inspect --bootstrap
+
 .PHONY: build
-build: ## Build Docker image (requires VERSION=)
+build: ## Build and push multi-arch image (requires VERSION=)
+ifndef VERSION
+	$(error VERSION is required. Usage: make build VERSION=v1.17.1)
+endif
+	docker buildx build $(BUILD_ARGS) \
+		--platform $(PLATFORMS) \
+		-t $(IMAGE):$(VERSION) \
+		-t $(IMAGE):latest \
+		--push \
+		.
+
+.PHONY: build-local
+build-local: ## Build local image for testing (requires VERSION=)
+ifndef VERSION
+	$(error VERSION is required. Usage: make build-local VERSION=v1.17.1)
+endif
 	docker build $(BUILD_ARGS) \
 		-t $(IMAGE):$(VERSION) \
 		-t $(IMAGE):latest \
 		.
-
-.PHONY: push
-push: ## Push Docker image to registry
-	docker push $(IMAGE):$(VERSION)
-	docker push $(IMAGE):latest
-
-.PHONY: build-push
-build-push: build push ## Build and push Docker image
 
 .PHONY: login
 login: ## Login to GitHub Container Registry
 	@echo "$$GITHUB_TOKEN" | docker login $(REGISTRY) -u $(USERNAME) --password-stdin
 
 .PHONY: clean
-clean: ## Clean local Docker images
+clean: ## Clean local Docker images (requires VERSION=)
+ifndef VERSION
+	$(error VERSION is required. Usage: make clean VERSION=v1.17.1)
+endif
 	docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest || true
