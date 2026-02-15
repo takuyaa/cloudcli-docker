@@ -9,6 +9,9 @@ RUN --mount=type=cache,target=/root/.npm \
 # Workaround: process.cwd() in Settings.jsx is not defined in browsers.
 # Replace with "/" (only used as fallback for project path in login handlers).
 RUN sed -i "s/process\.cwd()/'\/'/g" src/components/Settings.jsx
+# Fix Claude Agent SDK spawn issue in Docker containers (https://github.com/anthropics/claude-code/issues/4383)
+# Add env.PATH to SDK query options to ensure NODE spawns correctly
+RUN sed -i '/const queryInstance = query({/,/});/s/options: sdkOptions/options: { ...sdkOptions, env: { ...sdkOptions.env, PATH: process.env.PATH } }/' server/claude-sdk.js
 RUN npm run build
 # Install Claude Code CLI in builder (needs build tools for native deps)
 RUN --mount=type=cache,target=/root/.npm \
